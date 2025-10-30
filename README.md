@@ -1,4 +1,4 @@
-# Sentiment Analysis Phase 1 - Adolescent Obesity Perception from Social Media
+# Cross Paltform Sentiment Analysis Phase 1 - Adolescent Obesity Perception from Social Media
 
 This repository contains a Python script that performs sentiment analysis on social media comments using OpenAI's GPT-4 mini model. The focus is on classifying public sentiment regarding adolescent obesity, enabling further insights for public health research.
 We have made the datasets used in this project publicly available to promote transparency and collaboration in research. The datasets can be accessed through this repository, and it is open source for educational and research purposes.
