@@ -1,14 +1,31 @@
 # Cross-Platform Sentiment Analysis Phase 1 - Adolescent Obesity Perception from Social Media
 
-This repository contains a Python script that performs sentiment analysis on social media comments using OpenAI's GPT-4 mini model. The focus is on classifying public sentiment regarding adolescent obesity, enabling further insights for public health research.
-We have made the datasets used in this project publicly available to promote transparency and collaboration in research. The datasets can be accessed through this repository, and it is open source for educational and research purposes.
-Additionally, we are currently working on a journal and conference publication related to this study to further disseminate our findings and methodologies.
+This repository contains a Python implementation of a **two-stage sentiment analysis pipeline** designed to analyse public perceptions of adolescent obesity from social media comments.
+The methodology combines:
+1) **Lexicon-based sentiment scoring (TextBlob)** for efficiency and reproducibility  
+2) **Large Language Model refinement (GPT-4o-mini)** for contextual and semantic accuracy
+The datasets used in this project are made publicly available to promote transparency and reproducibility in research. This repository is open source and intended for educational and research use.
+
+A journal and conference publication based on this study is currently in preparation to formally present the methodology and findings.
 
 ---
 
 ## 📌 Overview
 
-This script takes a CSV file of user-collected comments from a social media platform, processes them in batches, and uses GPT-4 to classify each comment as **Positive**, **Negative**, or **Neutral**, along with a sentiment score between -1 and 1. The output is stored in a CSV file for downstream analysis and visualisation.
+The pipeline processes a CSV file containing social media comments and applies **two sequential sentiment analysis stages**:
+
+### Stage 1: Lexicon-Based Sentiment (TextBlob)
+- Computes a polarity score between **-1 and +1**
+- Applies fixed thresholds to classify sentiment
+- Fast, deterministic, and cost-efficient
+- Limited in contextual and sarcastic understanding
+
+### Stage 2: LLM-Based Sentiment Refinement
+- Uses **GPT-4o-mini** to refine or correct the initial sentiment
+- Considers context, nuance, and implicit meaning
+- Acts as a refinement layer, not a replacement
+
+Final results are saved to a CSV file for downstream analysis and visualisation.
 
 ---
 
@@ -17,14 +34,30 @@ This script takes a CSV file of user-collected comments from a social media plat
 Install dependencies:
 
 ```bash
-pip install --upgrade openai pandas tqdm
+pip install --upgrade openai pandas tqdm textblob
 ```
 
 ---
 
 ## 🧠 Model Details
-
+# Stage 1: TextBlob
+- **Type**: Lexicon-based sentiment analysis
+- **Output**:
+  - Polarity score in range -1 to +1
+  - Initial sentiment label
+- **Threshold Rules**:
+  - Polarity > 0.2 → Positive
+  - Polarity < -0.2 → Negative
+  - Otherwise → Neutral
+    
+# Stage 2: Large Language Model
 - **LLM Used**: `gpt-4o-mini`
+- **Role**: Contextual refinement of TextBlob output
+- **Input**:
+  - Original comment
+  - TextBlob polarity
+  - TextBlob sentiment label
+- **Output**: Final refined sentiment label
 - **Sentiment Rules**:
   - Score > 0.2 → **Positive**
   - Score < -0.2 → **Negative**
@@ -69,7 +102,7 @@ pip install --upgrade openai pandas tqdm
 The script creates a file named:
 
 ```
-chatgptclassified_sentiments.csv
+two_stage_sentiment_results.csv
 ```
 
 Each row contains:
@@ -98,7 +131,7 @@ It’s just fine.
 This is terrible.
 ```
 
-Output (`chatgptclassified_sentiments.csv`):
+Output (`two_stage_sentiment_results.csv`):
 
 ```csv
 comment,score,sentiment
@@ -114,7 +147,7 @@ This is terrible.,-0.78,Negative
 | Variable | Description | Default |
 |-----------|--------------|----------|
 | `input_file` | Path to input CSV | `"comments_file.csv"` |
-| `output_file` | Output file name | `"chatgptclassified_sentiments.csv"` |
+| `output_file` | Output file name | `"two_stage_sentiment_results.csv"` |
 | `batch_size` | Number of comments per API call | `25` |
 | `retries` | API retry attempts | `3` |
 
@@ -134,7 +167,7 @@ This is terrible.,-0.78,Negative
 
 If the script is interrupted or crashes:
 - It **automatically resumes** from where it left off.
-- Previously processed results are read from `chatgptclassified_sentiments.csv`.
+- Previously processed results are read from `two_stage_sentiment_results.csv`.
 
 ---
 
@@ -149,7 +182,7 @@ Output:
 ```
 Starting fresh...
 Processing comments: 100%|████████████████████████████████████████| 500/500 [03:24<00:00, 2.45it/s]
-All done. Output saved to chatgptclassified_sentiments.csv
+All done. Output saved to two_stage_sentiment_results.csv
 ```
 
 ---
@@ -160,7 +193,7 @@ You can quickly analyse results in Python:
 
 ```python
 import pandas as pd
-df = pd.read_csv("chatgptclassified_sentiments.csv")
+df = pd.read_csv("two_stage_sentiment_results.csv")
 print(df['sentiment'].value_counts())
 ```
 
