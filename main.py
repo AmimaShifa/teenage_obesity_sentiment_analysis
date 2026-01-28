@@ -7,7 +7,6 @@ import random
 from textblob import TextBlob
 from openai import OpenAI
 from tqdm import tqdm
-from json import JSONDecodeError
 import os
 
 # ---------------- CONFIG ----------------
@@ -20,7 +19,7 @@ batch_size = 25
 
 client = OpenAI(api_key=API_KEY)
 
-# Load data
+# Load input
 df = pd.read_csv(input_file, encoding="ISO-8859-1")
 df = df.dropna(subset=[text_column]).reset_index(drop=True)
 
@@ -30,12 +29,7 @@ if os.path.exists(output_file):
     processed_count = len(result_df)
     print(f"Resuming from row {processed_count}")
 else:
-    result_df = pd.DataFrame(columns=[
-        "comment",
-        "textblob_polarity",
-        "textblob_sentiment",
-        "llm_sentiment"
-    ])
+    result_df = pd.DataFrame(columns=["comment", "score", "sentiment"])
     processed_count = 0
     print("Starting fresh...")
 
@@ -62,25 +56,25 @@ def backoff_retry(func, retries=3):
             return func()
         except Exception as e:
             wait = 10 + attempt * 5 + random.uniform(0, 5)
-            print(f"Retry {attempt+1}/{retries} after error: {e}")
+            print(f"Retry {attempt + 1}/{retries} after error: {e}")
             time.sleep(wait)
     return None
 
 def refine_with_llm(batch):
     prompt = (
         "You are refining sentiment analysis results.\n"
-        "Each comment already has a lexicon-based sentiment from TextBlob.\n"
-        "Correct it only if context, sarcasm, or nuance suggests otherwise.\n\n"
+        "Each comment has an initial lexicon-based sentiment score.\n"
+        "Refine the sentiment only if context or nuance suggests otherwise.\n\n"
         "Return JSON format:\n"
-        "[{\"sentiment\": \"Positive|Neutral|Negative\"}]\n\n"
+        "[{\"score\": -1.0, \"sentiment\": \"Positive|Neutral|Negative\"}]\n\n"
         "Data:\n"
     )
 
     for i, row in enumerate(batch):
         prompt += (
-            f"{i+1}. Comment: \"{row['comment']}\"\n"
-            f"   TextBlob polarity: {row['polarity']}\n"
-            f"   TextBlob sentiment: {row['sentiment']}\n\n"
+            f"{i + 1}. Comment: \"{row['comment']}\"\n"
+            f"   Initial polarity: {row['polarity']}\n"
+            f"   Initial sentiment: {row['sentiment']}\n\n"
         )
 
     response = backoff_retry(lambda: client.chat.completions.create(
@@ -114,15 +108,14 @@ with tqdm(total=len(df) - processed_count, desc="Processing comments") as pbar:
         try:
             llm_results = refine_with_llm(stage1_results)
         except Exception:
-            llm_results = [{"sentiment": "Error"}] * len(stage1_results)
+            llm_results = [{"score": None, "sentiment": "Error"}] * len(stage1_results)
 
         batch_rows = []
         for i in range(len(stage1_results)):
             batch_rows.append({
                 "comment": stage1_results[i]["comment"],
-                "textblob_polarity": stage1_results[i]["polarity"],
-                "textblob_sentiment": stage1_results[i]["sentiment"],
-                "llm_sentiment": llm_results[i]["sentiment"]
+                "score": llm_results[i]["score"],
+                "sentiment": llm_results[i]["sentiment"]
             })
 
         result_df = pd.concat([result_df, pd.DataFrame(batch_rows)], ignore_index=True)
@@ -132,4 +125,3 @@ with tqdm(total=len(df) - processed_count, desc="Processing comments") as pbar:
         time.sleep(1)
 
 print("Two-stage sentiment analysis complete.")
-
